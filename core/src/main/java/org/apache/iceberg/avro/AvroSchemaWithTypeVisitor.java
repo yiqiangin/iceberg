@@ -93,19 +93,21 @@ public abstract class AvroSchemaWithTypeVisitor<T> {
       Schema branch = types.get(0);
       if (branch.getType() == Schema.Type.NULL) {
         options.add(visit((Type) null, branch, visitor));
+      } else if (type.isStructType()) {
+        options.add(visit(type.asStructType().fields().get(0).type(), branch, visitor));
       } else {
         options.add(visit(type, branch, visitor));
       }
     } else { // complex union case
-      int index = 1;
-      for (Schema branch : types) {
-        if (branch.getType() == Schema.Type.NULL) {
-          options.add(visit((Type) null, branch, visitor));
-        } else {
-          options.add(visit(type.asStructType().fields().get(index).type(), branch, visitor));
-          index += 1;
+        int index = 1;
+        for (Schema branch : types) {
+          if (branch.getType() == Schema.Type.NULL) {
+            options.add(visit((Type) null, branch, visitor));
+          } else {
+            options.add(visit(type.asStructType().fields().get(index).type(), branch, visitor));
+            index += 1;
+          }
         }
-      }
     }
     return visitor.union(type, union, options);
   }

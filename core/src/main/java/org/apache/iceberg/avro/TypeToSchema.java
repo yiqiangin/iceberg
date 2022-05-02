@@ -84,6 +84,10 @@ class TypeToSchema extends TypeUtil.SchemaVisitor<Schema> {
 
   @Override
   public Schema struct(Types.StructType struct, List<Schema> fieldSchemas) {
+    if (struct.fields().size() ==1 && struct.fields().get(0).fieldId() > 1 && fieldSchemas.size()==1) {
+      return fieldSchemas.get(0);
+    }
+
     Schema recordSchema = results.get(struct);
     if (recordSchema != null) {
       return recordSchema;
@@ -120,8 +124,13 @@ class TypeToSchema extends TypeUtil.SchemaVisitor<Schema> {
 
   @Override
   public Schema field(Types.NestedField field, Schema fieldSchema) {
+   return field(field, fieldSchema, false);
+  }
+
+  @Override
+  public Schema field(Types.NestedField field, Schema fieldSchema, boolean isFieldFromUnionWithProjection) {
     if (field.isOptional()) {
-      return AvroSchemaUtil.toOption(fieldSchema, field.hasDefaultValue());
+      return AvroSchemaUtil.toOption(fieldSchema, field.hasDefaultValue(), isFieldFromUnionWithProjection);
     } else {
       return fieldSchema;
     }
