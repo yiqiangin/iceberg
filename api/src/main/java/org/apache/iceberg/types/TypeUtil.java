@@ -310,6 +310,10 @@ public class TypeUtil {
       return null;
     }
 
+    public T field(Types.NestedField field, T fieldResult, boolean isFieldFromUnionWithProjection) {
+      return null;
+    }
+
     public T field(Types.NestedField field, T fieldResult) {
       return null;
     }
@@ -344,7 +348,12 @@ public class TypeUtil {
           } finally {
             visitor.afterField(field);
           }
-          results.add(visitor.field(field, result));
+          if (isStructConvertedFromUnionWithProjection(struct)) {
+            results.add(visitor.field(field, result, true));
+          } else {
+            results.add(visitor.field(field, result));
+          }
+
         }
         return visitor.struct(struct, results);
 
@@ -388,6 +397,10 @@ public class TypeUtil {
       default:
         return visitor.primitive(type.asPrimitiveType());
     }
+  }
+
+  private static boolean isStructConvertedFromUnionWithProjection(Types.StructType struct) {
+    return struct.fields().size()==1 && struct.fields().get(0).fieldId()>1;
   }
 
   public static class CustomOrderSchemaVisitor<T> {

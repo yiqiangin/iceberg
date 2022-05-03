@@ -102,6 +102,12 @@ class BuildAvroProjection extends AvroCustomOrderSchemaVisitor<Schema, Schema.Fi
           newField.addProp(AvroSchemaUtil.FIELD_ID_PROP, expectedField.fieldId());
           updatedFields.add(newField);
           hasChange = true;
+        } else if (AvroSchemaUtil.isComplexUnion(avroField) && expectedField.type().asStructType().fields().size() ==1) {
+          //if avro field is a complex union, but the expected iceberg field is obtained after projection
+          Schema newFileSchema = AvroSchemaUtil.convert(expectedField.type());
+          Schema.Field newField = new Schema.Field(avroField, newFileSchema);
+          updatedFields.add(newField);
+          hasChange = true;
         } else {
           // otherwise (i.e., expectedFiled has no default value, or it is null) we can use avroField as is
           updatedFields.add(avroField);

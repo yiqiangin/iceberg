@@ -197,9 +197,15 @@ public class AvroSchemaUtil {
   }
 
   public static Schema toOption(Schema schema, boolean nullIsSecondElement) {
+    return toOption(schema, nullIsSecondElement, false);
+  }
+
+  public static Schema toOption(Schema schema, boolean nullIsSecondElement, boolean fromUnionWithProjection) {
     if (schema.getType() == UNION) {
       Preconditions.checkArgument(isOptionSchema(schema), "Union schemas are not supported: %s", schema);
       return schema;
+    } else if (fromUnionWithProjection) {
+      return Schema.createUnion(schema);
     } else if (nullIsSecondElement) {
       return Schema.createUnion(schema, NULL);
     } else {
@@ -497,5 +503,9 @@ public class AvroSchemaUtil {
     }
     // don't touch any other primitive values
     return defaultValue;
+  }
+
+  static boolean isComplexUnion(Schema.Field field) {
+    return field.schema().getType().equals(Schema.Type.UNION) && field.schema().getTypes().size()>1;
   }
 }
