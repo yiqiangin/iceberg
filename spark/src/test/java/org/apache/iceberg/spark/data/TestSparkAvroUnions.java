@@ -535,7 +535,7 @@ public class TestSparkAvroUnions {
   }
 
   @Test
-  public void writeAndValidateColumnProjection() throws IOException {
+  public void writeAndValidateColumnProjectionWithDataInSameType() throws IOException {
     org.apache.avro.Schema avroSchema = SchemaBuilder.record("root")
         .fields()
         .name("unionCol")
@@ -552,7 +552,44 @@ public class TestSparkAvroUnions {
     unionRecord1.put("unionCol", 1);
     GenericData.Record unionRecord2 = new GenericData.Record(avroSchema);
     unionRecord2.put("unionCol", 2);
-    GenericData.Record unionRecord3 = new GenericData.Record(avroSchema);
+
+    File testFile = temp.newFile();
+    try (DataFileWriter<GenericData.Record> writer = new DataFileWriter<>(new GenericDatumWriter<>())) {
+      writer.create(avroSchema, testFile);
+      writer.append(unionRecord1);
+      writer.append(unionRecord2);
+    }
+
+    Schema expectedSchema = AvroSchemaUtil.toIceberg(avroSchema).select("unionCol.field0");
+    List<InternalRow> rows;
+    try (AvroIterable<InternalRow> reader = Avro.read(Files.localInput(testFile))
+        .createReaderFunc(SparkAvroReader::new)
+        .project(expectedSchema)
+        .build()) {
+      rows = Lists.newArrayList(reader);
+
+      Assert.assertEquals(1, rows.get(0).getInt(0));
+      Assert.assertEquals(2, rows.get(1).getInt(0));
+    }
+  }
+
+  @Test
+  public void writeAndValidateColumnProjectionWithDataInDifferentTypes() throws IOException {
+    org.apache.avro.Schema avroSchema = SchemaBuilder.record("root")
+        .fields()
+        .name("unionCol")
+        .type()
+        .unionOf()
+        .intType()
+        .and()
+        .stringType()
+        .endUnion()
+        .noDefault()
+        .endRecord();
+
+    GenericData.Record unionRecord1 = new GenericData.Record(avroSchema);
+    unionRecord1.put("unionCol", 1);
+    GenericData.Record unionRecord2 = new GenericData.Record(avroSchema);
     unionRecord2.put("unionCol", "foo");
 
     File testFile = temp.newFile();
@@ -572,16 +609,6 @@ public class TestSparkAvroUnions {
 
       Assert.assertEquals(1, rows.get(0).getInt(0));
       Assert.assertEquals(2, rows.get(1).getInt(0));
-
-//      Assert.assertEquals(3, rows.get(0).getStruct(0, 3).numFields());
-//      Assert.assertEquals(1, rows.get(0).getStruct(0, 3).getInt(0));
-//      Assert.assertTrue(rows.get(0).getStruct(0, 3).isNullAt(1));
-//      Assert.assertEquals("foo", rows.get(0).getStruct(0, 3).getString(2));
-//
-//      Assert.assertEquals(3, rows.get(1).getStruct(0, 3).numFields());
-//      Assert.assertEquals(0, rows.get(1).getStruct(0, 3).getInt(0));
-//      Assert.assertEquals(1, rows.get(1).getStruct(0, 3).getInt(1));
-//      Assert.assertTrue(rows.get(1).getStruct(0, 3).isNullAt(2));
     }
   }
 }
