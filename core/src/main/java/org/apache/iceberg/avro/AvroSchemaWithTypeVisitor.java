@@ -97,17 +97,33 @@ public abstract class AvroSchemaWithTypeVisitor<T> {
         options.add(visit(type, branch, visitor));
       }
     } else { // complex union case
-      int index = 1;
-      for (Schema branch : types) {
-        if (branch.getType() == Schema.Type.NULL) {
-          options.add(visit((Type) null, branch, visitor));
-        } else {
-          options.add(visit(type.asStructType().fields().get(index).type(), branch, visitor));
-          index += 1;
+      if (!isColumnProjectedInComplexUnion(type)) {
+        int index = 1;
+        for (Schema branch : types) {
+          if (branch.getType() == Schema.Type.NULL) {
+            options.add(visit((Type) null, branch, visitor));
+          } else {
+            options.add(visit(type.asStructType().fields().get(index).type(), branch, visitor));
+            index += 1;
+          }
+        }
+      } else {
+        int projectedTypeIdx = type.asStructType().fields().get(0).fieldId();
+        Type projectedType = type.asStructType().fields().get(0).type();
+        for (int i=0; i<types.size(); ++i) {
+          if (i == (projectedTypeIdx-2)) {
+            options.add(visit(projectedType, types.get(i), visitor));
+          } else {
+            options.add(visit((Type) null, types.get(i), visitor));
+          }
         }
       }
     }
     return visitor.union(type, union, options);
+  }
+
+  private static boolean isColumnProjectedInComplexUnion(Type type) {
+    return type.asStructType().fields().size() == 1 && type.asStructType().fields().get(0).fieldId() != 1;
   }
 
   private static <T> T visitArray(Type type, Schema array, AvroSchemaWithTypeVisitor<T> visitor) {
